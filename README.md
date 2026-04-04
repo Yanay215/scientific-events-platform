@@ -1,0 +1,1 @@
+# scientific-events-platform
