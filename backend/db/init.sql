@@ -38,6 +38,13 @@ CREATE TYPE parser_status AS ENUM (
     'error'
 );
 
+CREATE TYPE participation_status AS ENUM (
+    'registered',   
+    'attended',     
+    'awarded',      
+    'cancelled'     
+);
+
 CREATE TABLE users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     email VARCHAR(255) NOT NULL UNIQUE,
@@ -49,9 +56,15 @@ CREATE TABLE users (
     university VARCHAR(255),
     department VARCHAR(255),
     academic_degree VARCHAR(100),
-    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    is_verified BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE user_verifications (
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    code VARCHAR(6) NOT NULL,
+    expires_at TIMESTAMP NOT NULL
 );
 
 CREATE TABLE scientific_fields (
@@ -75,8 +88,8 @@ CREATE TABLE events (
     is_online BOOLEAN NOT NULL DEFAULT FALSE,
     location VARCHAR(500),
     requirements_text TEXT,
-    info_letter_path varchar(500),
-    source_url varchar(1000),
+    info_letter_path VARCHAR(500),
+    source_url VARCHAR(1000) CONSTRAINT unique_source_url UNIQUE,
     status event_status NOT NULL DEFAULT 'draft',
     source event_source NOT NULL DEFAULT 'manual',
     rejection_reason TEXT,
@@ -89,14 +102,24 @@ CREATE TABLE applications (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     event_id UUID NOT NULL REFERENCES events(id) ON DELETE CASCADE,
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    paper_title varchar(500) NOT NULL,
-    file_path varchar(500),
-    file_name varchar(255),
+    paper_title VARCHAR(500) NOT NULL,
+    file_path VARCHAR(500),
+    file_name VARCHAR(255),
     status application_status NOT NULL DEFAULT 'new',
     rejection_reason TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     CONSTRAINT unique_application UNIQUE (event_id, user_id)
+);
+
+CREATE TABLE user_registrations (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    event_id UUID NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+    status participation_status NOT NULL DEFAULT 'registered',
+    registered_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT unique_user_event_reg UNIQUE (user_id, event_id)
 );
 
 CREATE TABLE favorites (
@@ -109,11 +132,11 @@ CREATE TABLE favorites (
 CREATE TABLE certificates (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    event_id UUID NOT NULL REFERENCES events(id) ON DELETE CASCADE,
-    file_path varchar(500) NOT NULL,
-    file_name varchar(255) NOT NULL,
-    uploaded_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    CONSTRAINT unique_certificate UNIQUE (user_id, event_id)
+    event_id UUID REFERENCES events(id) ON DELETE SET NULL, 
+    title VARCHAR(255) NOT NULL,                     
+    file_path VARCHAR(500) NOT NULL,
+    file_name VARCHAR(255) NOT NULL,
+    uploaded_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE TABLE parsers_config (
@@ -149,6 +172,9 @@ CREATE INDEX idx_applications_event ON applications (event_id);
 CREATE INDEX idx_applications_user ON applications (user_id);
 CREATE INDEX idx_applications_status ON applications (status);
 
+CREATE INDEX idx_user_reg_user ON user_registrations (user_id);
+CREATE INDEX idx_certificates_user ON certificates (user_id);
+
 CREATE INDEX idx_action_logs_moderator ON action_logs (moderator_id);
 CREATE INDEX idx_action_logs_type ON action_logs (action_type);
 CREATE INDEX idx_action_logs_created ON action_logs (created_at DESC);
@@ -167,6 +193,9 @@ CREATE TRIGGER trg_events_updated_at BEFORE UPDATE ON events
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 CREATE TRIGGER trg_applications_updated_at BEFORE UPDATE ON applications
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER trg_user_registrations_updated_at BEFORE UPDATE ON user_registrations
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 INSERT INTO scientific_fields (name, code) VALUES 

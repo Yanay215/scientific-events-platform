@@ -1,0 +1,5 @@
+@use 'sass:map';
+@use 'variables';
+@function radius($size) {
+  @return map.get(variables.$radii, $size);
+}
