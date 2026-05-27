@@ -1,0 +1,98 @@
+@use './../../assets/scss/variables' as variables;
+@use './../../assets/scss/functions' as functions;
+
+.page-layout {
+  background-color: variables.$dark-white;
+  min-height: 100vh;
+  padding: 60px 20px;
+  display: flex;
+  justify-content: center;
+}
+
+.form-container {
+  background: variables.$white;
+  padding: 40px;
+  border-radius: functions.radius('xl');
+  width: 100%;
+  max-width: 800px;
+  
+  &.mini { max-width: 500px; }
+}
+
+.title {
+  color: variables.$main-color;
+  font-size: 28px;
+  font-weight: 700;
+  text-align: center;
+  margin-bottom: 32px;
+}
+
+.subtitle {
+  text-align: center;
+  color: variables.$gray;
+  margin-top: -24px;
+  margin-bottom: 32px;
+  font-size: 14px;
+}
+
+.grid-form, .stack-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.field-row {
+  display: flex;
+  gap: 16px;
+  .field-group { flex: 1; }
+}
+
+.field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  
+  label {
+    font-size: 14px;
+    color: variables.$dark-gray;
+    font-weight: 500;
+  }
+}
+
+.styled-input, .styled-textarea, .styled-select {
+  background: variables.$dark-white;
+  border: 2px solid transparent;
+  border-radius: functions.radius('m');
+  padding: 14px 16px;
+  font-size: 15px;
+  outline: none;
+  transition: 0.2s;
+  
+  &:focus { border-color: variables.$light-main-color; }
+}
+
+.submit-btn {
+  padding: 16px;
+  border: none;
+  border-radius: functions.radius('m');
+  font-weight: 600;
+  cursor: pointer;
+  transition: 0.2s;
+
+  &.main {
+    background: variables.$main-color;
+    color: variables.$white;
+    &:hover { opacity: 0.9; }
+  }
+
+  &.secondary {
+    background: variables.$ultra-light-gray;
+    color: variables.$dark-gray;
+  }
+}
+
+.form-actions {
+  display: flex;
+  gap: 12px;
+  button { flex: 1; }
+}
