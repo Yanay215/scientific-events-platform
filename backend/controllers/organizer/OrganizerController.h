@@ -15,4 +15,4 @@ class OrganizerController : public drogon::HttpController<OrganizerController> {
         void exportParticipantsToCsv(const drogon::HttpRequestPtr &req, std::function<void(const drogon::HttpResponsePtr &)> &&callback, const std::string &id);
     private:
         bool checkOrganizerRole(const drogon::HttpRequestPtr &req, std::function<void(const drogon::HttpResponsePtr &)> &&callback);
-}
+};

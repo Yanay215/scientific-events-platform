@@ -2,40 +2,38 @@
 #include <drogon/orm/DbClient.h>
 #include <drogon/utils/Utilities.h>
 
-const std::string PARSER_API_KEY = "parser_api_key";
-
 bool ParserController::validateApiKey(const drogon::HttpRequestPtr &req) {
     auto apiKey = req->getHeader("X-Parser-Api-Key");
-    return (!apiKey.empty() && apiKey == PARSER_API_KEY);
+    const char* envApiKey = std::getenv("PARSER_API_KEY");
+    std::string safeApiKey = envApiKey ? std::string(envApiKey) : "your_default_api_key";
+    return (!apiKey.empty() && apiKey == safeApiKey);
 }
 
 void ParserController::importParsedEvents(const drogon::HttpRequestPtr &req, std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
     if (!validateApiKey(req)) {
-        auto resp = drogon::HttpResponse::newHttpJsonResponse();
-        resp->setStatusCode(drogon::k401Unauthorized);
         Json::Value err;
         err["msg"] = "Invalid API key";
-        resp->setJsonBody(err);
+        auto resp = drogon::HttpResponse::newHttpJsonResponse(err);
+        resp->setStatusCode(drogon::k401Unauthorized);
         callback(resp);
         return;
     }
     auto json = req->getJsonObject();
     if (!json || !(*json)["events"].isArray()) {
-        auto resp = drogon::HttpResponse::newHttpJsonResponse();
         Json::Value err;
         err["msg"] = "Invalid JSON body: 'events' array is required";
+        auto resp = drogon::HttpResponse::newHttpJsonResponse(err);
         resp->setStatusCode(drogon::k400BadRequest);
         callback(resp);
         return;
     }
     const Json::Value &events = (*json)["events"];
     if (events.empty()) {
-        auto resp = drogon::HttpResponse::newHttpJsonResponse();
         Json::Value ret;
         ret["result"] = "success";
         ret["inserted_events"] = 0;
+        auto resp = drogon::HttpResponse::newHttpJsonResponse(ret);
         resp->setStatusCode(drogon::k200OK);
-        resp->setJsonBody(ret);
         callback(resp);
         return;
     }
@@ -74,33 +72,34 @@ void ParserController::importParsedEvents(const drogon::HttpRequestPtr &req, std
                     }
                     (*processedEvents)++;
                     if (*processedEvents == totalEvents) {
-                        auto resp = drogon::HttpResponse::newHttpJsonResponse();
                         Json::Value ret;
                         ret["result"] = "success";
                         ret["inserted_events"] = sharedCounter->load();  
+                        auto resp = drogon::HttpResponse::newHttpJsonResponse(ret);
                         resp->setStatusCode(drogon::k200OK);
-                        resp->setJsonBody(ret);
                         callback(resp);
                     }
                 }, [totalEvents, processedEvents, errorsList, callback](const drogon::orm::DrogonDbException &e) {
                     (*processedEvents)++;
                     if (*processedEvents == totalEvents) {
-                        auto resp = drogon::HttpResponse::newHttpJsonResponse();
                         Json::Value ret;
                         ret["result"] = "partial_success or failure";
                         ret["error"] = e.base().what();
+                        auto resp = drogon::HttpResponse::newHttpJsonResponse(ret);
                         resp->setStatusCode(drogon::k500InternalServerError);
-                        resp->setJsonBody(ret);
                         callback(resp);
                     }
                 }, title, startDate, endDate, sourceUrl, description, location, isOnline, indexing);
             }, [totalEvents, processedEvents, callback](const drogon::orm::DrogonDbException &e) {
                 (*processedEvents)++;
                 if (*processedEvents == totalEvents) {
-                    auto resp = drogon::HttpResponse::newHttpJsonResponse();
+                    Json::Value err;
+                    err["result"] = "failure";
+                    err["error"] = e.base().what();
+                    auto resp = drogon::HttpResponse::newHttpJsonResponse(err);
                     resp->setStatusCode(drogon::k500InternalServerError);
                     callback(resp);
                 }
-        }, fieldCode);
+            }, fieldCode); 
     }
 }

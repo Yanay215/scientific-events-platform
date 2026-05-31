@@ -4,7 +4,7 @@
       <header class="form-header">
         <button class="back-button" aria-label="Назад" @click="$router.back()">
           <svg width="10" height="16" viewBox="0 0 10 16" fill="none">
-            <path d="M8.5 15L1.5 8L8.5 1" stroke="#8C93A1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M8.5 15L1.5 8L8.5 1" stroke="#7a7a7a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
         </button>
         <h1>Завершение<br>регистрации</h1>
@@ -16,11 +16,11 @@
           <input 
             id="firstName" 
             type="text" 
-            v-model="formData.firstName" 
+            v-model="formData.first_name" 
             placeholder="Олег"
-            :class="{ 'input-error': errors.firstName }"
+            :class="{ 'input-error': errors.first_name }"
           >
-          <span v-if="errors.firstName" class="error-text">{{ errors.firstName }}</span>
+          <span v-if="errors.first_name" class="error-text">{{ errors.first_name }}</span>
         </div>
 
         <div class="form-group">
@@ -28,52 +28,131 @@
           <input 
             id="lastName" 
             type="text" 
-            v-model="formData.lastName" 
+            v-model="formData.last_name" 
             placeholder="Волков"
-            :class="{ 'input-error': errors.lastName }"
+            :class="{ 'input-error': errors.last_name }"
           >
-          <span v-if="errors.lastName" class="error-text">{{ errors.lastName }}</span>
+          <span v-if="errors.last_name" class="error-text">{{ errors.last_name }}</span>
         </div>
 
         <div class="form-group">
-          <label for="patronymic">Введите ваше отчество:</label>
+          <label for="middleName">Введите ваше отчество:</label>
           <input 
-            id="patronymic" 
+            id="middleName" 
             type="text" 
-            v-model="formData.patronymic" 
+            v-model="formData.middle_name" 
             placeholder="Васильевич"
           >
         </div>
 
         <div class="form-group">
-          <label>Ваш пол: <span class="required">*</span></label>
-          <div class="gender-selector">
+          <label>Ваша роль: <span class="required">*</span></label>
+          <div class="slider-selector" :style="{ '--active-index': formData.role === 'organizer' ? 1 : 0 }">
+            <div class="slider-active-bg"></div>
             <button 
               type="button" 
-              class="gender-btn"
-              :class="{ 'active': formData.gender === 'female' }"
-              @click="formData.gender = 'female'"
-            >Женский</button>
+              class="slider-btn"
+              :class="{ 'active': formData.role === 'participant' }"
+              @click="formData.role = 'participant'"
+            >Участник</button>
             <button 
               type="button" 
-              class="gender-btn"
-              :class="{ 'active': formData.gender === 'male' }"
-              @click="formData.gender = 'male'"
-            >Мужской</button>
+              class="slider-btn"
+              :class="{ 'active': formData.role === 'organizer' }"
+              @click="formData.role = 'organizer'"
+            >Организатор</button>
           </div>
-          <span v-if="errors.gender" class="error-text">{{ errors.gender }}</span>
         </div>
 
         <div class="form-group">
-          <label for="birthDate">Введите вашу дату рождения: <span class="required">*</span></label>
-          <span class="label-hint">В формате день, месяц, год рождения</span>
+          <label>Ваш пол: <span class="required">*</span></label>
+          <div class="slider-selector" :style="{ '--active-index': uiFields.gender === 'male' ? 1 : 0 }">
+            <div class="slider-active-bg"></div>
+            <button 
+              type="button" 
+              class="slider-btn"
+              :class="{ 'active': uiFields.gender === 'female' }"
+              @click="uiFields.gender = 'female'"
+            >Женский</button>
+            <button 
+              type="button" 
+              class="slider-btn"
+              :class="{ 'active': uiFields.gender === 'male' }"
+              @click="uiFields.gender = 'male'"
+            >Мужской</button>
+          </div>
+        </div>
+
+        <div class="form-group" ref="universityContainer">
+          <label for="university">Университет / Организация:</label>
+          <div class="autocomplete-wrapper">
+            <input 
+              id="university" 
+              type="text"
+              v-model="universitySearch" 
+              @input="onUniversityInput"
+              @focus="isDropdownOpen = true"
+              placeholder="Например, УрФУ или Ельцин"
+              autocomplete="off"
+            >
+            
+            <transition name="fade">
+              <ul v-if="isDropdownOpen && universitiesList?.length" class="autocomplete-dropdown">
+                <li 
+                  v-for="uni in universitiesList" 
+                  :key="uni.name"
+                  @click="selectUniversity(uni.name)"
+                >
+                  <span class="uni-name">{{ uni.name }}</span>
+                  <span v-if="uni.synonyms && uni.synonyms.length" class="uni-badge">
+                    {{ uni.synonyms[0] }}
+                  </span>
+                </li>
+              </ul>
+            </transition>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="department">Институт / Кафедра:</label>
           <input 
-            id="birthDate" 
-            type="text" 
-            v-model="formData.birthDate" 
-            placeholder="ДД.ММ.ГГГГ"
-            :class="{ 'input-error': errors.birthDate }"
+            id="department" 
+            type="text"
+            list="departments-list"
+            v-model="formData.department" 
+            placeholder="ИРИТ-РТФ"
           >
+          <datalist id="departments-list">
+            <option v-for="item in suggestions.departments" :key="item" :value="item" />
+          </datalist>
+        </div>
+
+        <div class="form-group">
+          <label for="academicDegree">Ученая степень / Статус:</label>
+          <input 
+            id="academicDegree" 
+            type="text"
+            list="degrees-list"
+            v-model="formData.academic_degree" 
+            placeholder="Студент"
+          >
+          <datalist id="degrees-list">
+            <option v-for="item in suggestions.degrees" :key="item" :value="item" />
+          </datalist>
+        </div>
+
+        <div class="form-group">
+          <label>Введите вашу дату рождения: <span class="required">*</span></label>
+          <el-date-picker
+            v-model="uiFields.birthDate"
+            type="date"
+            placeholder="ДД.ММ.ГГГГ"
+            format="DD.MM.YYYY"
+            value-format="YYYY-MM-DD"
+            :disabled-date="disabledFutureDates"
+            :editable="false"
+            class="custom-date-picker"
+          />
           <span v-if="errors.birthDate" class="error-text">{{ errors.birthDate }}</span>
         </div>
 
@@ -82,16 +161,16 @@
           <input 
             id="phone" 
             type="tel" 
-            v-model="formData.phone" 
-            placeholder="+7 (___) ___ - __ - __"
-            :class="{ 'input-error': errors.phone }"
+            v-model="uiFields.phone" 
+            @input="handlePhoneInput"
+            placeholder="+7 (___) ___-__-__"
+            maxlength="18"
           >
-          <span v-if="errors.phone" class="error-text">{{ errors.phone }}</span>
         </div>
 
         <div class="checkbox-wrapper">
           <div class="checkbox-container">
-            <input id="consent" type="checkbox" v-model="formData.consent">
+            <input id="consent" type="checkbox" v-model="uiFields.consent">
             <label for="consent">Даю согласие на обработку персональных данных <span class="required">*</span></label>
           </div>
           <span v-if="errors.consent" class="error-text">{{ errors.consent }}</span>
@@ -101,7 +180,11 @@
           type="submit" 
           class="submit-button"
           :class="{ 'btn-disabled': hasAnyError }"
-        >Далее</button>
+          :disabled="isLoading"
+          @click="handleSubmit"
+        >
+          {{ isLoading ? 'Сохранение...' : 'Далее' }}
+        </button>
       </form>
 
       <footer class="form-footer">
@@ -113,45 +196,157 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed } from 'vue';
+import { ref, reactive, computed, onMounted, onUnmounted } from 'vue';
+import { useAuthStore } from '@/stores/auth';
+import { useRouter } from 'vue-router';
+import { getAllUniversities } from '@/services/api';
+
+const authStore = useAuthStore();
+const router = useRouter();
+const isLoading = ref(false);
 
 const formData = reactive({
-  firstName: '',
-  lastName: '',
-  patronymic: '',
-  gender: '',
-  birthDate: '',
+  first_name: '',
+  last_name: '',
+  middle_name: '',
+  university: '',
+  department: '',
+  academic_degree: '',
+  role: 'participant', 
   phone: '',
+  birth_date: '',
+  gender: 'female',
+});
+
+const uiFields = reactive({
   consent: false,
 });
 
-const errors = ref({});
+const universitySearch = ref('');
+const universitiesList = ref([]);
+const isDropdownOpen = ref(false);
+const universityContainer = ref(null);
+let debounceTimeout = null;
 
-const hasAnyError = computed(() => {
-  return Object.keys(errors.value).length > 0;
+const onUniversityInput = () => {
+  isDropdownOpen.value = true;
+  formData.university = universitySearch.value;
+  clearTimeout(debounceTimeout);
+  debounceTimeout = setTimeout(async () => {
+    const query = universitySearch.value.trim();
+    if (query.length < 2) {
+      universitiesList.value = [];
+      return;
+    }
+    try {
+      const data = await getAllUniversities(query);
+      console.log(data);
+      universitiesList.value = data;
+    } catch (err) {
+      console.error(err);
+    }
+  }, 300);
+};
+
+const selectUniversity = (name) => {
+  universitySearch.value = name;
+  formData.university = name;
+  isDropdownOpen.value = false;
+};
+
+const handleClickOutside = (event) => {
+  if (universityContainer.value && !universityContainer.value.contains(event.target)) {
+    isDropdownOpen.value = false;
+  }
+};
+
+onMounted(() => {
+  document.addEventListener('click', handleClickOutside);
 });
 
-const handleSubmit = () => {
+onUnmounted(() => {
+  document.removeEventListener('click', handleClickOutside);
+});
+
+const suggestions = {
+  departments: [
+    'ИРИТ-РТФ',
+    'ИНЭУ',
+    'ИЕНиМ',
+    'Физико-технологический институт'
+  ],
+  degrees: [
+    'Студент',
+    'Магистрант',
+    'Аспирант',
+    'Кандидат технических наук',
+    'Доктор наук',
+    'Без ученой степени'
+  ]
+};
+
+const errors = ref({});
+
+const hasAnyError = computed(() => Object.keys(errors.value).length > 0);
+
+const disabledFutureDates = (time) => {
+  return time.getTime() > Date.now();
+};
+
+const handlePhoneInput = (e) => {
+  let input = e.target.value.replace(/\D/g, '');
+  if (!input) {
+    formData.phone = '';
+    return;
+  }
+  
+  if (input.startsWith('7') || input.startsWith('8')) {
+    input = input.substring(1);
+  }
+  
+  let formatted = '+7 ';
+  if (input.length > 0) {
+    formatted += '(' + input.substring(0, 3);
+  }
+  if (input.length >= 3) {
+    formatted += ') ' + input.substring(3, 6);
+  }
+  if (input.length >= 6) {
+    formatted += ' - ' + input.substring(6, 8);
+  }
+  if (input.length >= 8) {
+    formatted += ' - ' + input.substring(8, 10);
+  }
+  
+  formData.phone = formatted;
+};
+
+const handleSubmit = async () => {
   errors.value = {};
 
-  if (!formData.firstName) errors.value.firstName = 'Это поле обязательно';
-  if (!formData.lastName) errors.value.lastName = 'Это поле обязательно';
-  if (!formData.gender) errors.value.gender = 'Это поле обязательно';
-  
-  if (!formData.birthDate) {
-    errors.value.birthDate = 'Это поле обязательно';
-  } else if (formData.birthDate === '25.01.2115') {
-    errors.value.birthDate = 'Неверный формат даты рождения';
-  }
-
-  if (formData.phone && formData.phone.includes('_')) {
-    errors.value.phone = 'Неверный формат номера';
-  }
-
-  if (!formData.consent) errors.value.consent = 'Это поле обязательно';
+  if (!formData.first_name.trim()) errors.value.first_name = 'Это поле обязательно';
+  if (!formData.last_name.trim()) errors.value.last_name = 'Это поле обязательно';
+  if (!formData.birth_date) errors.value.birth_date = 'Это поле обязательно';
+  if (!uiFields.consent) errors.value.consent = 'Это поле обязательно';
 
   if (Object.keys(errors.value).length === 0) {
-    console.log('Success:', formData);
+    try {
+      isLoading.value = true;
+      const data = await authStore.completeProfile({
+        ...formData
+      });
+      if (data.user.role === 'organizer') {
+        router.push({ name: 'OrganizerDashboard' });
+      } else if (data.user.role === 'moderator') {
+        router.push({ name: 'ModeratorDashboard' });
+      } else {
+        router.push({ name: 'Dashboard' });
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      isLoading.value = false;
+    }
   }
 };
 </script>
@@ -165,15 +360,18 @@ const handleSubmit = () => {
   min-height: 100vh;
   background-color: variables.$dark-white;
   padding: 20px;
+  box-sizing: border-box;
 }
 
 .form-container {
   background-color: variables.$white;
-  border-radius: functions.radius('xxl');
+  border-radius: functions.radius('l');
   padding: 40px 32px;
   width: 100%;
   max-width: 440px;
   text-align: left;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.02);
+  box-sizing: border-box;
 }
 
 .form-header {
@@ -204,27 +402,19 @@ const handleSubmit = () => {
 
   label {
     display: block;
-    font-size: 15px;
+    font-size: 14px;
     font-weight: 500;
     color: variables.$black;
     margin-bottom: 8px;
     
     .required { color: variables.$dangerous; }
   }
-
-  .label-hint {
-    display: block;
-    font-size: 12px;
-    color: variables.$gray;
-    margin-top: -4px;
-    margin-bottom: 8px;
-  }
 }
 
 input[type="text"],
 input[type="tel"] {
   width: 100%;
-  padding: 16px 20px;
+  padding: 14px 20px;
   background-color: variables.$dark-white;
   border: 1px solid transparent;
   border-radius: functions.radius('m');
@@ -234,8 +424,86 @@ input[type="tel"] {
   box-sizing: border-box;
 
   &::placeholder { color: variables.$gray; opacity: 0.6; }
-  &:focus { outline: none; background-color: variables.$white; border-color: variables.$light-main-color; }
+  &:focus { outline: none; background-color: variables.$white; border-color: variables.$main-color; }
   &.input-error { border-color: variables.$dangerous; background-color: variables.$white; }
+}
+
+/* Стилизация анимированных слайдеров (Роль и Пол) */
+.slider-selector {
+  position: relative;
+  display: flex;
+  background-color: variables.$dark-white;
+  border-radius: functions.radius('m');
+  padding: 4px;
+  box-sizing: border-box;
+  height: 50px;
+
+  .slider-active-bg {
+    position: absolute;
+    top: 4px;
+    bottom: 4px;
+    left: 4px;
+    width: calc(50% - 4px);
+    background-color: variables.$main-color;
+    border-radius: functions.radius('s');
+    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    transform: translateX(calc(100% * var(--active-index)));
+    z-index: 1;
+  }
+
+  .slider-btn {
+    position: relative;
+    flex: 1;
+    border: none;
+    background: transparent;
+    color: variables.$gray;
+    font-size: 16px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: color 0.2s ease;
+    z-index: 2;
+
+    &.active {
+      color: variables.$white;
+    }
+  }
+}
+
+/* Полная кастомизация Element Plus под ваши токены */
+:deep(.el-date-editor.custom-date-picker) {
+  width: 100% !important;
+  height: 50px;
+  
+  .el-input__wrapper {
+    background-color: variables.$dark-white !important;
+    border-radius: functions.radius('m') !important;
+    padding: 14px 20px !important;
+    box-shadow: none !important;
+    border: 1px solid transparent;
+    box-sizing: border-box;
+    flex-direction: row-reverse; /* Переносим иконку календаря вправо как на дизайне */
+
+    &:hover, &.is-focus {
+      border-color: variables.$main-color !important;
+      background-color: variables.$white !important;
+    }
+
+    .el-input__inner {
+      color: variables.$black !important;
+      font-size: 16px !important;
+      font-family: inherit;
+      text-align: left;
+      &::placeholder {
+        color: variables.$gray !important;
+        opacity: 0.6;
+      }
+    }
+
+    .el-input__prefix {
+      margin-left: auto;
+      color: variables.$gray;
+    }
+  }
 }
 
 .error-text {
@@ -243,32 +511,6 @@ input[type="tel"] {
   font-size: 12px;
   margin-top: 4px;
   display: block;
-}
-
-.gender-selector {
-  display: flex;
-  background-color: variables.$dark-white;
-  border-radius: functions.radius('m');
-  padding: 4px;
-  gap: 4px;
-
-  .gender-btn {
-    flex: 1;
-    border: none;
-    padding: 12px;
-    border-radius: functions.radius('s');
-    background: transparent;
-    color: variables.$gray;
-    font-size: 14px;
-    cursor: pointer;
-    transition: all 0.2s;
-
-    &.active {
-      background-color: variables.$white;
-      color: variables.$black;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-    }
-  }
 }
 
 .checkbox-wrapper {
@@ -284,6 +526,7 @@ input[type="tel"] {
       height: 18px;
       margin-top: 2px;
       cursor: pointer;
+      accent-color: variables.$main-color;
     }
 
     label {
@@ -305,10 +548,10 @@ input[type="tel"] {
   font-size: 18px;
   font-weight: 600;
   cursor: pointer;
-  transition: background-color 0.2s;
+  transition: opacity 0.2s;
 
   &:hover { opacity: 0.9; }
-  &.btn-disabled { background-color: variables.$light-main-color; }
+  &.btn-disabled { background-color: variables.$ultra-light-main-color; color: variables.$light-main-color; cursor: not-allowed; }
 }
 
 .form-footer {

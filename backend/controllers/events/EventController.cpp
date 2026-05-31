@@ -51,16 +51,22 @@ void EventController::getEvents(const drogon::HttpRequestPtr &req, std::function
         auto resp = drogon::HttpResponse::newHttpJsonResponse(events);
         callback(resp);
     }, [callback](const drogon::orm::DrogonDbException &e) {
-        auto resp = drogon::HttpResponse::newHttpJsonResponse();
+        Json::Value ret;
+        ret["result"] = "error";
+        ret["error"] = "Internal server error";
+        auto resp = drogon::HttpResponse::newHttpJsonResponse(ret);
         resp->setStatusCode(drogon::k500InternalServerError);
         callback(resp);
-    }, params);
+    }, paramCounter);
 }
 
 void EventController::createEvent(const drogon::HttpRequestPtr &req, std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
     auto json = req->getJsonObject();
     if (!json) {
-        auto resp = drogon::HttpResponse::newHttpJsonResponse();
+        Json::Value ret;
+        ret["result"] = "error";
+        ret["error"] = "Invalid JSON body";
+        auto resp = drogon::HttpResponse::newHttpJsonResponse(ret);
         resp->setStatusCode(drogon::k400BadRequest);
         callback(resp);
         return;
@@ -74,10 +80,11 @@ void EventController::createEvent(const drogon::HttpRequestPtr &req, std::functi
     std::string location = (*json)["location"].asString();
     bool isOnline = (*json)["is_online"].asBool();
     std::string organizerId = "NULL";
-    bool hasUser = req->getAttributes().find("user_id") != req->getAttributes().end();
+    std::string userId = req->getAttributes()->get<std::string>("user_id");
+    bool hasUser = !userId.empty();
     std::string sql;
     if (hasUser) {
-        organizerId = req->getAttributes().get<std::string>("user_id");
+        organizerId = req->getAttributes()->get<std::string>("user_id");
         sql = "INSERT INTO events (title, description, start_date, end_date, field_id, indexing, location, is_online, organizer_id, status, source) "
               "VALUES ($1, $2, $3, $4, $5, $6::indexing_type, $7, $8, $9::uuid, 'pending'::event_status, 'manual'::event_source) RETURNING id::text";
     } else {
@@ -95,7 +102,10 @@ void EventController::createEvent(const drogon::HttpRequestPtr &req, std::functi
         callback(resp);
     };
     auto errorCallback = [callback](const drogon::orm::DrogonDbException &e) {
-        auto resp = drogon::HttpResponse::newHttpJsonResponse();
+        Json::Value ret;
+        ret["result"] = "error";
+        ret["error"] = "Internal server error";
+        auto resp = drogon::HttpResponse::newHttpJsonResponse(ret);
         resp->setStatusCode(drogon::k500InternalServerError);
         callback(resp);
     };

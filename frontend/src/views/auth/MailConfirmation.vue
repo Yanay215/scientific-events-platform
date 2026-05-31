@@ -69,6 +69,7 @@
 import { ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
+import { ElMessage } from 'element-plus';
 
 const props = defineProps({
   mode: { type: String, default: 'registration' }
@@ -77,7 +78,7 @@ const props = defineProps({
 const router = useRouter();
 const code = ref(['', '', '', '', '', '']);
 const inputs = ref([]);
-const timer = ref(119); // Значение с макета
+const timer = ref(119); 
 const hasError = ref(false); 
 
 const isCodeComplete = computed(() => code.value.every(d => d !== ''));
