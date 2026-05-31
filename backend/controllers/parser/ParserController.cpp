@@ -60,11 +60,11 @@ void ParserController::importParsedEvents(const drogon::HttpRequestPtr &req, std
             "SELECT id FROM scientific_fields WHERE code = $1",
             [dbClient, callback, sharedCounter, totalEvents, processedEvents, errorsList, title, startDate, endDate, sourceUrl, description, location, isOnline, indexing](const drogon::orm::Result &r) {
                 int fieldId = 1;
-                if (r.empty()) {
+                if (!r.empty()) {
                     fieldId = r[0]["id"].as<int>();
-                } 
+                }
                 std::string sql = "INSERT INTO events (title, description, start_date, end_date, source_url, field_id, indexing, location, is_online, status, source) "
-                                  "VALUES ($1, $2, $3, $4, $5, $6::indexing_type, $7, $8, $9, approved::event_status, 'parsed'::event_source) "
+                                  "VALUES ($1, $2, $3, $4, $5, $6, $7::indexing_type, $8, $9, 'approved'::event_status, 'parsed'::event_source) "
                                   "ON CONFLICT (source_url) DO NOTHING";
                 dbClient->execSqlAsync(sql, [sharedCounter, totalEvents, processedEvents, errorsList, callback](const drogon::orm::Result &insertResult) {
                     if (insertResult.affectedRows() > 0) {
@@ -89,7 +89,7 @@ void ParserController::importParsedEvents(const drogon::HttpRequestPtr &req, std
                         resp->setStatusCode(drogon::k500InternalServerError);
                         callback(resp);
                     }
-                }, title, startDate, endDate, sourceUrl, description, location, isOnline, indexing);
+                }, title, description, startDate, endDate, sourceUrl, fieldId, indexing, location, isOnline);
             }, [totalEvents, processedEvents, callback](const drogon::orm::DrogonDbException &e) {
                 (*processedEvents)++;
                 if (*processedEvents == totalEvents) {

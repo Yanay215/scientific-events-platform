@@ -29,6 +29,17 @@
         <div class="password-strength-block">
           <div class="strength-header">
             <span class="strength-label">Сложность пароля:</span>
+            <el-tooltip placement="top" effect="light">
+              <template #content>
+                <div class="pwd-req-list">
+                  <div :class="{ ok: hasMinLen }">{{ hasMinLen ? '✓' : '•' }} не менее 8 символов</div>
+                  <div :class="{ ok: hasUpper }">{{ hasUpper ? '✓' : '•' }} заглавная латинская буква (A-Z)</div>
+                  <div :class="{ ok: hasLower }">{{ hasLower ? '✓' : '•' }} строчная латинская буква (a-z)</div>
+                  <div :class="{ ok: hasDigit }">{{ hasDigit ? '✓' : '•' }} хотя бы одна цифра</div>
+                </div>
+              </template>
+              <span class="pwd-req-icon" role="img" aria-label="Требования к паролю">?</span>
+            </el-tooltip>
           </div>
           <div class="strength-bar-bg">
             <div 
@@ -123,6 +134,14 @@ const passwordError = ref(false)
 
 const router = useRouter()
 
+const hasMinLen = computed(() => password.value.length >= 8)
+const hasUpper = computed(() => /[A-Z]/.test(password.value))
+const hasLower = computed(() => /[a-z]/.test(password.value))
+const hasDigit = computed(() => /\d/.test(password.value))
+const passwordMeetsRequirements = computed(() =>
+  hasMinLen.value && hasUpper.value && hasLower.value && hasDigit.value
+)
+
 const validateEmail = () => {
   const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
   emailError.value = !!(email.value && !re.test(email.value))
@@ -142,6 +161,7 @@ const isFormValid = computed(() => {
     && repeatPassword.value 
     && !emailError.value 
     && !passwordError.value
+    && passwordMeetsRequirements.value
 })
 
 const strengthPercentage = computed(() => {
@@ -312,6 +332,34 @@ const handleSubmit = () => {
 .strength-header {
   font-size: 15px;
   color: variables.$gray;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pwd-req-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background-color: variables.$main-color;
+  color: variables.$white;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: help;
+  user-select: none;
+}
+
+.pwd-req-list {
+  font-size: 13px;
+  line-height: 1.7;
+  color: variables.$gray;
+
+  .ok {
+    color: #43A047;
+  }
 }
 
 .strength-bar-bg {

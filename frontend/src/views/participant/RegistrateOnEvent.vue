@@ -62,7 +62,7 @@
               </div>
               <div class="f-field">
                 <div class="f-label">Ваш номер телефона:</div>
-                <input class="f-input" v-model="form.phone" placeholder="+7 (999) 999-99-99">
+                <input class="f-input" v-model="form.phone" @input="maskPhone" placeholder="+7 (999) 999-99-99" inputmode="tel">
               </div>
             </div>
 
@@ -190,7 +190,7 @@
               <div class="f-field">
                 <div class="f-label">Введите УДК: <span class="req">*</span></div>
                 <div class="f-hint">Справочник по УДК</div>
-                <input class="f-input" :class="{ err: de.udk }" v-model="form.udk" placeholder="00.00">
+                <input class="f-input" :class="{ err: de.udk }" v-model="form.udk" @input="maskUdk" placeholder="00.00">
                 <span class="err-msg" v-if="de.udk">Обязательное поле</span>
               </div>
               <div class="f-field">
@@ -394,7 +394,6 @@
 <script setup>
 import { ref, reactive, computed } from 'vue';
 
-// Справочники полей конференции из registration.html
 const sections = [
   'Информационные технологии и интеллектуальные системы',
   'Дизайн, архитектура и урбанистика',
@@ -406,12 +405,10 @@ const statusesEn = ['Student', 'Postgraduate', 'Teacher / Scientist', 'Industry 
 const cities = ['Москва', 'Санкт-Петербург', 'Екатеринбург', 'Новосибирск', 'Казань'];
 const citiesEn = ['Moscow', 'Saint-Petersburg', 'Yekaterinburg', 'Novosibirsk', 'Kazan'];
 
-// Общие состояния управления формой
 const submitted = ref(false);
 const mobStep = ref(0);
 const fileErr = ref('');
 
-// Реактивный стейт формы в соответствии с HTML-шаблоном
 const form = reactive({
   section: '',
   fioRu: '',
@@ -429,10 +426,10 @@ const form = reactive({
   degreeRu: '',
   degreeEn: '',
   course: '',
-  degree: '',     // Степень для преподавателя
-  degreeEnT: '',  // Степень для преподавателя (EN)
-  title: '',     // Звание для преподавателя
-  titleEn: '',   // Звание для преподавателя (EN)
+  degree: '',    
+  degreeEnT: '', 
+  title: '',     
+  titleEn: '',   
   youngScientist: false,
   udk: '',
   thesisTitleRu: '',
@@ -446,7 +443,6 @@ const form = reactive({
   thesisFile: null
 });
 
-// Стейты валидации (Desktop Errors / Mobile Errors)
 const de = reactive({
   section: false, fioRu: false, fioEn: false, email: false, statusRu: false,
   vuzRu: false, cityRu: false, subdivRu: false, degreeRu: false, course: false,
@@ -459,14 +455,30 @@ const me = reactive({
   annotRu: false, annotEn: false, file: false
 });
 
-// Вычисляемые свойства для условного рендеринга типов участников
 const isStudent = computed(() => form.statusRu && form.statusRu.toLowerCase().includes('студент'));
 const isTeacher = computed(() => form.statusRu && (form.statusRu.toLowerCase().includes('преподаватель') || form.statusRu.toLowerCase().includes('аспирант')));
 
 const clearDE = () => Object.keys(de).forEach(k => de[k] = false);
 const clearME = () => Object.keys(me).forEach(k => me[k] = false);
 
-// Логика обработки и валидации загружаемого файла
+const maskUdk = () => {
+  form.udk = form.udk.replace(/[^0-9.\-+():/=]/g, '');
+};
+
+const maskPhone = () => {
+  let digits = form.phone.replace(/\D/g, '');
+  if (digits.startsWith('8')) digits = '7' + digits.slice(1);
+  if (digits.startsWith('9')) digits = '7' + digits;
+  digits = digits.slice(0, 11);
+  if (!digits) { form.phone = ''; return; }
+  let out = '+7';
+  if (digits.length > 1) out += ' (' + digits.slice(1, 4);
+  if (digits.length >= 4) out += ') ' + digits.slice(4, 7);
+  if (digits.length >= 7) out += '-' + digits.slice(7, 9);
+  if (digits.length >= 9) out += '-' + digits.slice(9, 11);
+  form.phone = out;
+};
+
 const handleFile = (e) => {
   fileErr.value = '';
   const file = e.target.files[0];
@@ -486,7 +498,6 @@ const handleFile = (e) => {
   form.thesisFile = file.name;
 };
 
-// Валидация и отправка формы для десктопа
 const handleSubmit = () => {
   clearDE();
   let ok = true;
@@ -511,7 +522,6 @@ const handleSubmit = () => {
   if (ok) submitted.value = true;
 };
 
-// Логика перехода между шагами на мобильных устройствах
 const mobNext = (step) => {
   clearME();
   let ok = true;
@@ -530,7 +540,6 @@ const mobNext = (step) => {
   if (ok) mobStep.value = step + 1;
 };
 
-// Валидация мобильной отправки
 const submitMobile = () => {
   clearME();
   let ok = true;
@@ -555,7 +564,6 @@ const resetForm = () => {
 </script>
 
 <style scoped>
-/* Перенесенная палитра и переменные темы */
 :root {
   --navy:         #1a2b5e;
   --navy-dark:    #0f1c42;
@@ -577,7 +585,6 @@ const resetForm = () => {
   color: #1a1e2e;
 }
 
-/* ── HEADER ── */
 .header {
   background: #ffffff; border-bottom: 1px solid #e2e6f0;
   padding: 0 40px; height: 60px;
@@ -593,7 +600,6 @@ const resetForm = () => {
 }
 .icon-btn:hover { background: #f5f6fa; }
 
-/* ── SHARED FIELD STYLES ── */
 .f-label {
   font-size: 14px; font-weight: 500; color: #1a1e2e;
   margin-bottom: 4px; display: flex; align-items: baseline; gap: 3px;
@@ -612,12 +618,10 @@ const resetForm = () => {
 .err-msg { font-size: 12px; color: #d0222a; margin-top: 4px; }
 .f-field { display: flex; flex-direction: column; }
 
-/* Checkbox */
 .f-check { display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; }
 .f-check input[type=checkbox] { width: 17px; height: 17px; accent-color: #1d4ed8; cursor: pointer; }
 .f-check span { font-size: 14px; color: #1a1e2e; }
 
-/* File upload */
 .upload-zone {
   border: 1.5px dashed #e2e6f0; border-radius: 8px;
   background: #f5f6fa; min-height: 100px;
@@ -632,13 +636,11 @@ const resetForm = () => {
 .upload-hint { font-size: 12px; color: #6b7490; text-align: center; }
 .upload-filename { font-size: 13px; font-weight: 500; color: #16a34a; }
 
-/* Section heading */
 .sec-title {
   font-size: 18px; font-weight: 700; color: #1d4ed8;
   margin-bottom: 18px; margin-top: 8px;
 }
 
-/* ── DESKTOP GRID & LAYOUT ── */
 .desktop-wrap { max-width: 1280px; margin: 0 auto; padding: 32px 40px 60px; }
 .page-title-desktop { font-size: 26px; font-weight: 700; color: #1a2b5e; margin-bottom: 28px; }
 .form-block {
@@ -664,19 +666,16 @@ const resetForm = () => {
 .btn-primary:hover { background: #0f1c42; }
 .contact-line { text-align: center; font-size: 12px; color: #6b7490; margin-top: 12px; }
 
-/* ── MOBILE LAYOUT ── */
 .mobile-wrap { max-width: 440px; margin: 0 auto; padding: 32px 20px 40px; display: flex; flex-direction: column; }
 .page-title-mobile { font-size: 26px; font-weight: 700; color: #1a1e2e; text-align: center; margin-bottom: 28px; }
 .mob-step { display: flex; flex-direction: column; gap: 20px; }
 .mob-footer { margin-top: 28px; display: flex; flex-direction: column; gap: 10px; }
 .mob-footer .btn-primary, .mob-footer .btn-secondary { flex: unset; width: 100%; }
 
-/* Slide Animation */
 .slide-enter-active, .slide-leave-active { transition: all 0.22s ease; }
 .slide-enter-from { opacity: 0; transform: translateX(20px); }
 .slide-leave-to   { opacity: 0; transform: translateX(-20px); }
 
-/* Success screen */
 .success-screen {
   padding: 60px 20px; text-align: center;
   display: flex; flex-direction: column; align-items: center; gap: 16px;

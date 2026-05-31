@@ -2,6 +2,22 @@
 #include <drogon/orm/DbClient.h>
 #include <sstream>
 
+static std::string csvEscape(const std::string &value) {
+    if (value.find(',') == std::string::npos &&
+        value.find('"') == std::string::npos &&
+        value.find('\n') == std::string::npos &&
+        value.find('\r') == std::string::npos) {
+        return value;
+    }
+    std::string escaped = "\"";
+    for (char c : value) {
+        if (c == '"') escaped += "\"\"";
+        else escaped += c;
+    }
+    escaped += "\"";
+    return escaped;
+}
+
 bool OrganizerController::checkOrganizerRole(const drogon::HttpRequestPtr &req, std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
     std::string role = req->getAttributes()->get<std::string>("user_role");
     if (role != "organizer" && role != "moderator") {
@@ -113,7 +129,7 @@ void OrganizerController::getEventApplications(const drogon::HttpRequestPtr &req
 void OrganizerController::updateApplicationStatus(const drogon::HttpRequestPtr &req, std::function<void(const drogon::HttpResponsePtr &)> &&callback, const std::string &id) {
     if (!checkOrganizerRole(req, std::move(callback))) return;
     auto json = req->getJsonObject();
-    if (!json || (*json)["status"].isString()) {
+    if (!json || !(*json)["status"].isString()) {
         Json::Value err;
         err["error"] = "Invalid request body: 'status' field is required and must be a string";
         auto resp = drogon::HttpResponse::newHttpJsonResponse(err);
@@ -122,6 +138,14 @@ void OrganizerController::updateApplicationStatus(const drogon::HttpRequestPtr &
         return;
     }
     std::string statusFilter = (*json)["status"].asString();
+    if (statusFilter != "new" && statusFilter != "approved" && statusFilter != "rejected") {
+        Json::Value err;
+        err["error"] = "Invalid status value. Allowed: new, approved, rejected";
+        auto resp = drogon::HttpResponse::newHttpJsonResponse(err);
+        resp->setStatusCode(drogon::k400BadRequest);
+        callback(resp);
+        return;
+    }
     auto dbClient = drogon::app().getDbClient();
     dbClient->execSqlAsync(
         "UPDATE applications SET status = $1::application_status WHERE id = $2::uuid",
@@ -145,32 +169,53 @@ void OrganizerController::updateApplicationStatus(const drogon::HttpRequestPtr &
 
 void OrganizerController::exportParticipantsToCsv(const drogon::HttpRequestPtr &req, std::function<void(const drogon::HttpResponsePtr &)> &&callback, const std::string &id) {
     if (!checkOrganizerRole(req, std::move(callback))) return;
+    std::string organizerId = req->getAttributes()->get<std::string>("user_id");
     auto dbClient = drogon::app().getDbClient();
     dbClient->execSqlAsync(
-        "SELECT u.last_name, u.first_name, u.middle_name, u.university, u.email, a.paper_title "
-        "FROM applications a "
-        "JOIN users u ON a.user_id = u.id "
-        "WHERE a.event_id = $1::uuid AND a.status = 'approved'::application_status",
-        [callback](const drogon::orm::Result &appResult) {
-            std::stringstream ss;
-            ss << "\xEF\xBB\xBF";
-            ss << "Фамилия,Имя,Отчество,ВУЗ / Организация,Email,Название статьи\n";
-            for (const auto &i : appResult) {
-                std::string middleName = i["middle_name"].isNull() ? "" : i["middle_name"].as<std::string>();
-                std::string university = i["university"].isNull() ? "" : i["university"].as<std::string>();
-                ss << i["last_name"].as<std::string>() << ","
-                   << i["first_name"].as<std::string>() << ","
-                   << middleName << ","
-                   << university << ","
-                   << i["email"].as<std::string>() << ","
-                   << i["paper_title"].as<std::string>() << "\n";
+        "SELECT id FROM events WHERE id = $1::uuid AND organizer_id = $2::uuid",
+        [callback, dbClient, id](const drogon::orm::Result &checkResult) {
+            if (checkResult.empty()) {
+                Json::Value err;
+                err["error"] = "Event not found or access denied";
+                auto resp = drogon::HttpResponse::newHttpJsonResponse(err);
+                resp->setStatusCode(drogon::k404NotFound);
+                callback(resp);
+                return;
             }
-            auto resp = drogon::HttpResponse::newHttpResponse();
-            resp->setBody(ss.str());
-            resp->setStatusCode(drogon::k200OK);
-            resp->setContentTypeCode(drogon::CT_TEXT_CSV);
-            resp->addHeader("Content-Disposition", "attachment; filename=participants_report.csv");
-            callback(resp);
+            dbClient->execSqlAsync(
+                "SELECT u.last_name, u.first_name, u.middle_name, u.university, u.email, a.paper_title "
+                "FROM applications a "
+                "JOIN users u ON a.user_id = u.id "
+                "WHERE a.event_id = $1::uuid AND a.status = 'approved'::application_status",
+                [callback](const drogon::orm::Result &appResult) {
+                    std::stringstream ss;
+                    ss << "\xEF\xBB\xBF";
+                    ss << "Фамилия,Имя,Отчество,ВУЗ / Организация,Email,Название статьи\n";
+                    for (const auto &i : appResult) {
+                        std::string middleName = i["middle_name"].isNull() ? "" : i["middle_name"].as<std::string>();
+                        std::string university = i["university"].isNull() ? "" : i["university"].as<std::string>();
+                        ss << csvEscape(i["last_name"].as<std::string>()) << ","
+                           << csvEscape(i["first_name"].as<std::string>()) << ","
+                           << csvEscape(middleName) << ","
+                           << csvEscape(university) << ","
+                           << csvEscape(i["email"].as<std::string>()) << ","
+                           << csvEscape(i["paper_title"].as<std::string>()) << "\n";
+                    }
+                    auto resp = drogon::HttpResponse::newHttpResponse();
+                    resp->setBody(ss.str());
+                    resp->setStatusCode(drogon::k200OK);
+                    resp->setContentTypeCode(drogon::CT_TEXT_CSV);
+                    resp->addHeader("Content-Disposition", "attachment; filename=participants_report.csv");
+                    callback(resp);
+                },
+                [callback](const drogon::orm::DrogonDbException &e) {
+                    Json::Value err;
+                    err["error"] = "Database error: " + std::string(e.base().what());
+                    auto resp = drogon::HttpResponse::newHttpJsonResponse(err);
+                    resp->setStatusCode(drogon::k500InternalServerError);
+                    callback(resp);
+                }, id
+            );
         },
         [callback](const drogon::orm::DrogonDbException &e) {
             Json::Value err;
@@ -178,6 +223,6 @@ void OrganizerController::exportParticipantsToCsv(const drogon::HttpRequestPtr &
             auto resp = drogon::HttpResponse::newHttpJsonResponse(err);
             resp->setStatusCode(drogon::k500InternalServerError);
             callback(resp);
-        }, id
+        }, id, organizerId
     );
 }

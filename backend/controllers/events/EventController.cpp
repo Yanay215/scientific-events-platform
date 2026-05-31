@@ -32,17 +32,17 @@ void EventController::getEvents(const drogon::HttpRequestPtr &req, std::function
         params.push_back(endDate);
     }
     auto dbClient = drogon::app().getDbClient();
-    dbClient->execSqlAsync(sql, [callback](const drogon::orm::Result &r) {
+    auto successCallback = [callback](const drogon::orm::Result &r) {
         Json::Value events(Json::arrayValue);
         for (const auto &row : r) {
             Json::Value event;
             event["id"] = row["id"].as<std::string>();
             event["title"] = row["title"].as<std::string>();
-            event["description"] = row["description"].as<std::string>();
+            event["description"] = row["description"].isNull() ? "" : row["description"].as<std::string>();
             event["start_date"] = row["start_date"].as<std::string>();
             event["end_date"] = row["end_date"].as<std::string>();
             event["indexing"] = row["indexing"].as<std::string>();
-            event["location"] = row["location"].as<std::string>();
+            event["location"] = row["location"].isNull() ? "" : row["location"].as<std::string>();
             event["is_online"] = row["is_online"].as<bool>();
             event["field_name"] = row["field_name"].isNull() ? "" : row["field_name"].as<std::string>();
             event["university"] = row["org_university"].isNull() ? "" : row["org_university"].as<std::string>();
@@ -50,14 +50,20 @@ void EventController::getEvents(const drogon::HttpRequestPtr &req, std::function
         }
         auto resp = drogon::HttpResponse::newHttpJsonResponse(events);
         callback(resp);
-    }, [callback](const drogon::orm::DrogonDbException &e) {
+    };
+    auto errorCallback = [callback](const drogon::orm::DrogonDbException &e) {
         Json::Value ret;
         ret["result"] = "error";
         ret["error"] = "Internal server error";
         auto resp = drogon::HttpResponse::newHttpJsonResponse(ret);
         resp->setStatusCode(drogon::k500InternalServerError);
         callback(resp);
-    }, paramCounter);
+    };
+    auto binder = (*dbClient) << sql;
+    for (const auto &p : params) {
+        binder << p;
+    }
+    binder >> std::move(successCallback) >> std::move(errorCallback);
 }
 
 void EventController::createEvent(const drogon::HttpRequestPtr &req, std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
