@@ -23,7 +23,10 @@ Json::Value buildDirectoryTree(const std::filesystem::path &path) {
 void FilesController::uploadFile(const drogon::HttpRequestPtr &req, std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
     drogon::MultiPartParser parser;
     if (parser.parse(req) != 0 || parser.getFiles().empty()) {
-        auto resp = drogon::HttpResponse::newHttpJsonResponse();
+        Json::Value ret;
+        ret["result"] = "error";
+        ret["error"] = "Invalid JSON body";
+        auto resp = drogon::HttpResponse::newHttpJsonResponse(ret);
         resp->setStatusCode(drogon::k400BadRequest);
         callback(resp);
         return;
@@ -32,7 +35,10 @@ void FilesController::uploadFile(const drogon::HttpRequestPtr &req, std::functio
     std::filesystem::path raw_name(file.getFileName());
     std::string file_name = raw_name.filename().string();
     if (file_name.empty()) {
-        auto resp = drogon::HttpResponse::newHttpJsonResponse();
+        Json::Value ret;
+        ret["result"] = "error";
+        ret["error"] = "Invalid file name";
+        auto resp = drogon::HttpResponse::newHttpJsonResponse(ret);
         resp->setStatusCode(drogon::k400BadRequest);
         callback(resp);
         return;
@@ -41,7 +47,7 @@ void FilesController::uploadFile(const drogon::HttpRequestPtr &req, std::functio
     if (!std::filesystem::exists(baseDir)) {
         std::filesystem::create_directory(baseDir);
     }
-    file.saveTo(baseDir.string());
+    file.saveAs(baseDir.string() + "/" + file.getFileName());
     std::filesystem::path savedFilePath = baseDir / file.getFileName();
     std::filesystem::path safeSavedFilePath = baseDir / file_name;
     if (savedFilePath != safeSavedFilePath && std::filesystem::exists(savedFilePath)) {
@@ -50,16 +56,18 @@ void FilesController::uploadFile(const drogon::HttpRequestPtr &req, std::functio
     Json::Value ret;
     ret["result"] = "success";
     ret["file_name"] = file_name;
-    auto resp = drogon::HttpResponse::newHttpJsonResponse();
+    auto resp = drogon::HttpResponse::newHttpJsonResponse(ret);
     resp->setStatusCode(drogon::k201Created);
-    resp->setJsonBody(ret);
     callback(resp);
 }
 
 void FilesController::getFile(const drogon::HttpRequestPtr &req, std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
     auto json = req->getJsonObject();
     if (!json || !(*json)["file_name"].isString()) {
-        auto resp = drogon::HttpResponse::newHttpJsonResponse();
+        Json::Value ret;
+        ret["result"] = "error";
+        ret["error"] = "Invalid JSON body";
+        auto resp = drogon::HttpResponse::newHttpJsonResponse(ret);
         resp->setStatusCode(drogon::k400BadRequest);
         callback(resp);
         return;
@@ -67,7 +75,10 @@ void FilesController::getFile(const drogon::HttpRequestPtr &req, std::function<v
 
     std::string file_name = (*json)["file_name"].asString();
     if (file_name.find('/') != std::string::npos || file_name.find('\\') != std::string::npos) {
-        auto resp = drogon::HttpResponse::newHttpJsonResponse();
+        Json::Value ret;
+        ret["result"] = "error";
+        ret["error"] = "Invalid file name";
+        auto resp = drogon::HttpResponse::newHttpJsonResponse(ret);
         resp->setStatusCode(drogon::k400BadRequest);
         callback(resp);
         return;
@@ -77,8 +88,20 @@ void FilesController::getFile(const drogon::HttpRequestPtr &req, std::function<v
         std::filesystem::create_directory(FILES_BASE_DIR);
     }
     if (!std::filesystem::exists(file_path)) {
-        auto resp = drogon::HttpResponse::newHttpJsonResponse();
+        Json::Value ret;
+        ret["result"] = "error";
+        ret["error"] = "File not found";
+        auto resp = drogon::HttpResponse::newHttpJsonResponse(ret);
         resp->setStatusCode(drogon::k404NotFound);
+        callback(resp);
+        return;
+    }    
+    if (!std::filesystem::is_regular_file(file_path)) {
+        Json::Value ret;
+        ret["result"] = "error";
+        ret["error"] = "File is not a regular file";
+        auto resp = drogon::HttpResponse::newHttpJsonResponse(ret);
+        resp->setStatusCode(drogon::k400BadRequest);
         callback(resp);
         return;
     }
@@ -90,7 +113,10 @@ void FilesController::getFile(const drogon::HttpRequestPtr &req, std::function<v
 void FilesController::deleteFile(const drogon::HttpRequestPtr &req, std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
     auto json = req->getJsonObject();
     if (!json || !(*json)["file_name"].isString()) {
-        auto resp = drogon::HttpResponse::newHttpJsonResponse();
+        Json::Value ret;
+        ret["result"] = "error";
+        ret["error"] = "Invalid JSON body";
+        auto resp = drogon::HttpResponse::newHttpJsonResponse(ret);
         resp->setStatusCode(drogon::k400BadRequest);
         callback(resp);
         return;
@@ -98,7 +124,10 @@ void FilesController::deleteFile(const drogon::HttpRequestPtr &req, std::functio
 
     std::string file_name = (*json)["file_name"].asString();
     if (file_name.find('/') != std::string::npos || file_name.find('\\') != std::string::npos) {
-        auto resp = drogon::HttpResponse::newHttpJsonResponse();
+        Json::Value ret;
+        ret["result"] = "error";
+        ret["error"] = "Invalid file name";
+        auto resp = drogon::HttpResponse::newHttpJsonResponse(ret);
         resp->setStatusCode(drogon::k400BadRequest);
         callback(resp);
         return;
@@ -108,15 +137,19 @@ void FilesController::deleteFile(const drogon::HttpRequestPtr &req, std::functio
         std::filesystem::create_directory(FILES_BASE_DIR);
     }
     if (!std::filesystem::exists(file_path)) {
-        auto resp = drogon::HttpResponse::newHttpJsonResponse();
+        Json::Value ret;
+        ret["result"] = "error";
+        ret["error"] = "File not found";
+        auto resp = drogon::HttpResponse::newHttpJsonResponse(ret);
         resp->setStatusCode(drogon::k404NotFound);
         callback(resp);
         return;
     }
-
     std::filesystem::remove(file_path);
-
-    auto resp = drogon::HttpResponse::newHttpJsonResponse();
+    Json::Value ret;
+    ret["result"] = "success";
+    ret["file_name"] = file_name;
+    auto resp = drogon::HttpResponse::newHttpJsonResponse(ret);
     resp->setStatusCode(drogon::k200OK);
     callback(resp);
 }
@@ -132,7 +165,10 @@ void FilesController::getFiles(const drogon::HttpRequestPtr &req, std::function<
         callback(resp);
     }
     catch (const std::exception &e) {
-        auto resp = drogon::HttpResponse::newHttpJsonResponse();
+        Json::Value ret;
+        ret["result"] = "error";
+        ret["error"] = "Internal server error";
+        auto resp = drogon::HttpResponse::newHttpJsonResponse(ret);
         resp->setStatusCode(drogon::k500InternalServerError);
         callback(resp);
     }

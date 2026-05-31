@@ -56,15 +56,21 @@ CREATE TABLE users (
     university VARCHAR(255),
     department VARCHAR(255),
     academic_degree VARCHAR(100),
+    phone VARCHAR(20) NOT NULL,
+    birth_date DATE NOT NULL,
+    gender VARCHAR(10) NOT NULL,
     is_verified BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE TABLE user_verifications (
-    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    email VARCHAR(255) NOT NULL UNIQUE,
+    password_hash VARCHAR(255) NOT NULL,
     code VARCHAR(6) NOT NULL,
-    expires_at TIMESTAMP NOT NULL
+    expires_at TIMESTAMPTZ NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE TABLE scientific_fields (
@@ -179,6 +185,8 @@ CREATE INDEX idx_action_logs_moderator ON action_logs (moderator_id);
 CREATE INDEX idx_action_logs_type ON action_logs (action_type);
 CREATE INDEX idx_action_logs_created ON action_logs (created_at DESC);
 
+CREATE INDEX idx_user_verifications_email ON user_verifications (email);
+
 CREATE OR REPLACE FUNCTION update_updated_at_column() RETURNS TRIGGER AS $$
 BEGIN
     NEW.updated_at = NOW();
@@ -209,13 +217,3 @@ INSERT INTO scientific_fields (name, code) VALUES
     ('Экономика', 'ECON'),
     ('Юриспруденция', 'LAW'),
     ('Педагогика', 'PED');
-
-INSERT INTO users (email, password_hash, role, first_name, last_name, university) VALUES
-    (
-        'moderator@sci_events.com',
-        '$2b$12$placeholder_hash_here',
-        'moderator',
-        'Татьяна',
-        'Иванова',
-        'УрФУ'
-    );

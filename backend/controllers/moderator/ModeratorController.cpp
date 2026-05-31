@@ -2,13 +2,12 @@
 #include <drogon/orm/DbClient.h>
 
 bool ModeratorController::isModerator(const drogon::HttpRequestPtr &req, std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
-    std::string role = req->getAttributes().get<std::string>("user_role");
+    std::string role = req->getAttributes()->get<std::string>("user_role");
     if (role != "moderator") {
-        auto resp = drogon::HttpResponse::newHttpJsonResponse();
-        resp->setStatusCode(drogon::k403Forbidden);
         Json::Value err;
         err["msg"] = "You are not a moderator";
-        resp->setJsonBody(err);
+        auto resp = drogon::HttpResponse::newHttpJsonResponse(err);
+        resp->setStatusCode(drogon::k403Forbidden);
         callback(resp);
         return false;
     }
@@ -36,23 +35,25 @@ void ModeratorController::getEvents(const drogon::HttpRequestPtr &req, std::func
         auto resp = drogon::HttpResponse::newHttpJsonResponse(events);
         callback(resp);
     }, [callback](const drogon::orm::DrogonDbException &e) {
-        auto resp = drogon::HttpResponse::newHttpJsonResponse();
+        Json::Value err;
+        err["msg"] = "Internal server error";
+        auto resp = drogon::HttpResponse::newHttpJsonResponse(err);
         resp->setStatusCode(drogon::k500InternalServerError);
         callback(resp);
     });
 }
 
 void ModeratorController::approveEvent(const drogon::HttpRequestPtr &req, std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
-    if (!isModerator(req, callback)) return;
-    std::string moderatorId = req->getAttributes().get<std::string>("user_id");
+    if (!isModerator(req, std::move(callback))) return;
+    std::string moderatorId = req->getAttributes()->get<std::string>("user_id");
+    std::string eventId = req->getAttributes()->get<std::string>("id");
     auto dbClient = drogon::app().getDbClient();
     dbClient->execSqlAsync("UPDATE events SET status = 'approved'::event_status WHERE id = $1::uuid AND status = 'pending'::event_status RETURNING title", [callback, dbClient, moderatorId, eventId](const drogon::orm::Result &r) {
         if (r.empty()) {
-            auto resp = drogon::HttpResponse::newHttpJsonResponse();
-            resp->setStatusCode(drogon::k404NotFound);
             Json::Value err;
             err["msg"] = "Event not found or already processed";
-            resp->setJsonBody(err);
+            auto resp = drogon::HttpResponse::newHttpJsonResponse(err);
+            resp->setStatusCode(drogon::k404NotFound);
             callback(resp);
             return;
         }
@@ -77,30 +78,35 @@ void ModeratorController::approveEvent(const drogon::HttpRequestPtr &req, std::f
             callback(resp);
         }, moderatorId, eventId, detailsStr);
     }, [callback](const drogon::orm::DrogonDbException &e) {
-        auto resp = drogon::HttpResponse::newHttpJsonResponse();
+        Json::Value err;
+        err["msg"] = "Internal server error";
+        auto resp = drogon::HttpResponse::newHttpJsonResponse(err);
         resp->setStatusCode(drogon::k500InternalServerError);
         callback(resp);
     }, eventId);
 }
 
 void ModeratorController::rejectEvent(const drogon::HttpRequestPtr &req, std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
-    if (!isModerator(req, callback)) return;
+    if (!isModerator(req, std::move(callback))) return;
     auto json = req->getJsonObject();
     if (!json || !(*json)["rejection_reason"].isString()) {
-        auto resp = drogon::HttpResponse::newHttpJsonResponse();
+        Json::Value err;
+        err["msg"] = "Invalid JSON body";
+        auto resp = drogon::HttpResponse::newHttpJsonResponse(err);
         resp->setStatusCode(drogon::k400BadRequest);
         callback(resp);
         return;
     }
+    std::string eventId = req->getAttributes()->get<std::string>("id");
+    std::string moderatorId = req->getAttributes()->get<std::string>("user_id");
     std::string rejectionReason = (*json)["rejection_reason"].asString();
     auto dbClient = drogon::app().getDbClient();
     dbClient->execSqlAsync("UPDATE events SET status = 'rejected'::event_status, rejection_reason = $1::text WHERE id = $2::uuid AND status = 'pending'::event_status RETURNING title", [callback, dbClient, moderatorId, eventId, rejectionReason](const drogon::orm::Result &r) {
         if (r.empty()) {
-            auto resp = drogon::HttpResponse::newHttpJsonResponse();
-            resp->setStatusCode(drogon::k404NotFound);
             Json::Value err;
             err["msg"] = "Event not found or already processed";
-            resp->setJsonBody(err);
+            auto resp = drogon::HttpResponse::newHttpJsonResponse(err);
+            resp->setStatusCode(drogon::k404NotFound);
             callback(resp);
             return;
         }
@@ -126,7 +132,9 @@ void ModeratorController::rejectEvent(const drogon::HttpRequestPtr &req, std::fu
             callback(resp);
         }, moderatorId, eventId, detailsStr);
     }, [callback](const drogon::orm::DrogonDbException &e) {
-        auto resp = drogon::HttpResponse::newHttpJsonResponse();
+        Json::Value err;
+        err["msg"] = "Internal server error";
+        auto resp = drogon::HttpResponse::newHttpJsonResponse(err);
         resp->setStatusCode(drogon::k500InternalServerError);
         callback(resp);
     }, rejectionReason, eventId);

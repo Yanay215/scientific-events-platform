@@ -13,7 +13,7 @@ import { useAuthStore } from './stores/auth'
 axios.interceptors.response.use(
     response => response,
     error => {
-        if (error/response && error.response.status === 401) {
+        if (error.response && error.response.status === 401) {
             const authStore = useAuthStore();
             authStore.logout();
             router.push('/login');

@@ -14,6 +14,7 @@ const routes = [
     {
         path: '/participant/dashboard',
         component: () => import('../views/participant/Dashboard.vue'),
+        name: 'Dashboard',
 //        meta: { requiresAuth: true, roles: ['participant'] },
     },
     {
@@ -23,12 +24,14 @@ const routes = [
     {
         path: '/organizer/events',
         component: () => import('../views/organizer/EventList.vue'),
+        name: 'OrganizerDashboard',
 //        meta: { requiresAuth: true, roles: ['organizer'] },
     },
     { path: '/organizer/create-event', component: () => import('../views/organizer/CreateEvent.vue') },
     {
         path: '/moderator/queue',
         component: () => import('../views/moderator/ModerationQueue.vue'),
+        name: 'ModeratorDashboard',
 //        meta: { requiresAuth: true, roles: ['moderator'] },
     },
 ]

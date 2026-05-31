@@ -3,7 +3,7 @@
 #include <sstream>
 
 bool OrganizerController::checkOrganizerRole(const drogon::HttpRequestPtr &req, std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
-    std::string role = req->getAttributes().get<std::string>("user_role");
+    std::string role = req->getAttributes()->get<std::string>("user_role");
     if (role != "organizer" && role != "moderator") {
         Json::Value err;
         err["error"] = "Unauthorized: Organizer role required";
@@ -16,8 +16,8 @@ bool OrganizerController::checkOrganizerRole(const drogon::HttpRequestPtr &req, 
 }
 
 void OrganizerController::getMyEvents(const drogon::HttpRequestPtr &req, std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
-    if (!checkOrganizerRole(req, callback)) return;
-    std::string organizerId = req->getAttributes().get<std::string>("user_id");
+    if (!checkOrganizerRole(req, std::move(callback))) return;
+    std::string organizerId = req->getAttributes()->get<std::string>("user_id");
     auto dbClient = drogon::app().getDbClient();
     dbClient->execSqlAsync(
         "SELECT id::text, title, description, start_date, end_date, status::text, rejection_reason "
@@ -40,7 +40,7 @@ void OrganizerController::getMyEvents(const drogon::HttpRequestPtr &req, std::fu
         },
         [callback](const drogon::orm::DrogonDbException &e) {
             Json::Value err;
-            err["error"] = "Database error: " + std::string(e.what());
+            err["error"] = "Database error: " + std::string(e.base().what());
             auto resp = drogon::HttpResponse::newHttpJsonResponse(err);
             resp->setStatusCode(drogon::k500InternalServerError);
             callback(resp);
@@ -50,8 +50,8 @@ void OrganizerController::getMyEvents(const drogon::HttpRequestPtr &req, std::fu
 }
 
 void OrganizerController::getEventApplications(const drogon::HttpRequestPtr &req, std::function<void(const drogon::HttpResponsePtr &)> &&callback, const std::string &id) {
-    if (!checkOrganizerRole(req, callback)) return;
-    std::string organizerId = req->getAttributes().get<std::string>("user_id");
+    if (!checkOrganizerRole(req, std::move(callback))) return;
+    std::string organizerId = req->getAttributes()->get<std::string>("user_id");
     auto dbClient = drogon::app().getDbClient();
     dbClient->execSqlAsync(
         "SELECT id FROM events WHERE id = $1::uuid AND organizer_id = $2::uuid",
@@ -92,7 +92,7 @@ void OrganizerController::getEventApplications(const drogon::HttpRequestPtr &req
                 },
                 [callback](const drogon::orm::DrogonDbException &e) {
                     Json::Value err;
-                    err["error"] = "Application not found: " + std::string(e.what());
+                    err["error"] = "Application not found: " + std::string(e.base().what());
                     auto resp = drogon::HttpResponse::newHttpJsonResponse(err);
                     resp->setStatusCode(drogon::k404NotFound);
                     callback(resp);
@@ -102,7 +102,7 @@ void OrganizerController::getEventApplications(const drogon::HttpRequestPtr &req
         },
         [callback](const drogon::orm::DrogonDbException &e) {
             Json::Value err;
-            err["error"] = "Database error: " + std::string(e.what());
+            err["error"] = "Database error: " + std::string(e.base().what());
             auto resp = drogon::HttpResponse::newHttpJsonResponse(err);
             resp->setStatusCode(drogon::k500InternalServerError);
             callback(resp);
@@ -111,7 +111,7 @@ void OrganizerController::getEventApplications(const drogon::HttpRequestPtr &req
 }
 
 void OrganizerController::updateApplicationStatus(const drogon::HttpRequestPtr &req, std::function<void(const drogon::HttpResponsePtr &)> &&callback, const std::string &id) {
-    if (!checkOrganizerRole(req, callback)) return;
+    if (!checkOrganizerRole(req, std::move(callback))) return;
     auto json = req->getJsonObject();
     if (!json || (*json)["status"].isString()) {
         Json::Value err;
@@ -135,7 +135,7 @@ void OrganizerController::updateApplicationStatus(const drogon::HttpRequestPtr &
         },
         [callback](const drogon::orm::DrogonDbException &e) {
             Json::Value err;
-            err["error"] = "Database error: " + std::string(e.what());
+            err["error"] = "Database error: " + std::string(e.base().what());
             auto resp = drogon::HttpResponse::newHttpJsonResponse(err);
             resp->setStatusCode(drogon::k500InternalServerError);
             callback(resp);
@@ -144,7 +144,7 @@ void OrganizerController::updateApplicationStatus(const drogon::HttpRequestPtr &
 }
 
 void OrganizerController::exportParticipantsToCsv(const drogon::HttpRequestPtr &req, std::function<void(const drogon::HttpResponsePtr &)> &&callback, const std::string &id) {
-    if (!checkOrganizerRole(req, callback)) return;
+    if (!checkOrganizerRole(req, std::move(callback))) return;
     auto dbClient = drogon::app().getDbClient();
     dbClient->execSqlAsync(
         "SELECT u.last_name, u.first_name, u.middle_name, u.university, u.email, a.paper_title "
@@ -174,7 +174,7 @@ void OrganizerController::exportParticipantsToCsv(const drogon::HttpRequestPtr &
         },
         [callback](const drogon::orm::DrogonDbException &e) {
             Json::Value err;
-            err["error"] = "Database error: " + std::string(e.what());
+            err["error"] = "Database error: " + std::string(e.base().what());
             auto resp = drogon::HttpResponse::newHttpJsonResponse(err);
             resp->setStatusCode(drogon::k500InternalServerError);
             callback(resp);

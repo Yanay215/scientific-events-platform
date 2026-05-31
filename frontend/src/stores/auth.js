@@ -2,7 +2,7 @@ import { defineStore } from 'pinia'
 import axios from 'axios'
 import { ElMessage } from 'element-plus'
 
-const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5173';
 axios.defaults.baseURL = apiUrl;
 
 axios.interceptors.response.use((config) => {
@@ -40,15 +40,12 @@ export const useAuthStore = defineStore('auth', {
                 throw error;
             }
         },
-        async register(email, password, firstName, lastName) {
+        async register(email, password) {
             try {
-                const response = await axios.post('/api/auth/register', { email, password, first_name: firstName, last_name: lastName });
-                this.token = response.data.token;
-                this.user = response.data.user;
-                this.currentUserId = response.data.user_id;
-                localStorage.setItem('token', this.token);
-                localStorage.setItem('user', JSON.stringify(this.user));
-                localStorage.setItem('user_id', this.currentUserId);
+                const response = await axios.post('/api/auth/register', { email, password });
+                if (response.data.verification_id) {
+                    localStorage.setItem('verification_id', response.data.verification_id);
+                }
                 ElMessage.success('Регистрация успешна! Код подтверждения отправлен на почту.');
                 return response.data;
             } catch (error) {
@@ -59,14 +56,37 @@ export const useAuthStore = defineStore('auth', {
         },
         async verifyEmail(code) {
             try {
-                if (!this.currentUserId) {
-                    throw new Error('Необходимо авторизоваться перед продолжением');
+                const verificationId = localStorage.getItem('verification_id');
+                if (!verificationId) {
+                    throw new Error('Сессия верификации не найдена. Пожалуйста, зарегистрируйтесь заново.');
                 }
-                const response = await axios.post('/api/auth/verify', { user_id: this.currentUserId, code: code });
+                const response = await axios.post('/api/auth/verify', { verification_id: verificationId, code });
                 ElMessage.success('Почта успешно подтверждена!');
                 return response.data;
             } catch (error) {
                 const errorMsg = error.response?.data?.error || 'Неверный или истекший код подтверждения';
+                ElMessage.error(errorMsg);
+                throw error;
+            }
+        },
+        async completeRegistration(profileData) {
+            try {
+                const verificationId = localStorage.getItem('verification_id');
+                if (!verificationId) {
+                    throw new Error('Сессия верификации не найдена. Пожалуйста, зарегистрируйтесь заново.');
+                }
+                const response = await axios.post('/api/auth/complete', { verification_id: verificationId, ...profileData });
+                this.token = response.data.token;
+                this.user = response.data.user;
+                this.currentUserId = response.data.user?.id;
+                localStorage.setItem('token', this.token);
+                localStorage.setItem('user', JSON.stringify(this.user));
+                localStorage.setItem('user_id', this.currentUserId);
+                localStorage.removeItem('verification_id');
+                ElMessage.success('Регистрация успешна! Добро пожаловать, ' + this.user.first_name + '!');
+                return response.data;
+            } catch (error) {
+                const errorMsg = error.response?.data?.error || 'Ошибка при завершении регистрации';
                 ElMessage.error(errorMsg);
                 throw error;
             }

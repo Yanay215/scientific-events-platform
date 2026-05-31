@@ -109,6 +109,7 @@
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { ElMessage } from 'element-plus'
 
 const email = ref('')
 const password = ref('')
@@ -172,7 +173,7 @@ const handleSubmit = () => {
   validatePasswords()
   
   if (isFormValid.value) {
-    useAuthStore().register(email.value, password.value, firstName.value, lastName.value)
+    useAuthStore().register(email.value, password.value)
       .then(() => {
         router.push('/verify-email')
       })

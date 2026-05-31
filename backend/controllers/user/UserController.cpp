@@ -2,7 +2,7 @@
 #include <drogon/orm/DbClient.h>
 
 void UserController::getProfile(const drogon::HttpRequestPtr &req, std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
-    auto userId = req->getAttributes().get<std::string>("user_id");
+    auto userId = req->getAttributes()->get<std::string>("user_id");
     auto dbClient = drogon::app().getDbClient();
     dbClient->execSqlAsync(
         "SELECT id::text, first_name, last_name, middle_name, university, email, department, academic_degree "
@@ -11,9 +11,8 @@ void UserController::getProfile(const drogon::HttpRequestPtr &req, std::function
             if (r.empty()) {
                 Json::Value err;
                 err["error"] = "User not found";
-                auto resp = drogon::HttpResponse::newHttpJsonResponse();
+                auto resp = drogon::HttpResponse::newHttpJsonResponse(err);
                 resp->setStatusCode(drogon::k404NotFound);
-                resp->setJsonBody(err);
                 callback(resp);
                 return;
             }
@@ -31,7 +30,9 @@ void UserController::getProfile(const drogon::HttpRequestPtr &req, std::function
             callback(resp);
         },
         [callback](const drogon::orm::DrogonDbException &e) {
-            auto resp = drogon::HttpResponse::newHttpJsonResponse();
+            Json::Value err;
+            err["error"] = "Database error: " + std::string(e.base().what());
+            auto resp = drogon::HttpResponse::newHttpJsonResponse(err);
             resp->setStatusCode(drogon::k500InternalServerError);
             callback(resp);
         }, userId);
@@ -40,12 +41,14 @@ void UserController::getProfile(const drogon::HttpRequestPtr &req, std::function
 void UserController::registerToEvent(const drogon::HttpRequestPtr &req, std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
     auto json = req->getJsonObject();
     if (!json || !(*json)["event_id"].isString()) {
-        auto resp = drogon::HttpResponse::newHttpJsonResponse();
+        Json::Value err;
+        err["error"] = "Invalid request body";
+        auto resp = drogon::HttpResponse::newHttpJsonResponse(err);
         resp->setStatusCode(drogon::k400BadRequest);
         callback(resp);
         return;
     }
-    std::string userId = req->getAttributes().get<std::string>("user_id");
+    std::string userId = req->getAttributes()->get<std::string>("user_id");
     std::string eventId = (*json)["event_id"].as<std::string>();
     auto dbClient = drogon::app().getDbClient();
     dbClient->execSqlAsync(
@@ -69,15 +72,16 @@ void UserController::registerToEvent(const drogon::HttpRequestPtr &req, std::fun
         callback(resp);
     }, [callback](const drogon::orm::DrogonDbException &e) {
         Json::Value errJson;
-        errJson["error"] = "Database error: " + std::string(e.what());
-        auto resp = drogon::HttpResponse::newHttpJsonResponse();
+        errJson["error"] = "Database error: " + std::string(e.base().what());
+        auto resp = drogon::HttpResponse::newHttpJsonResponse(errJson);
         resp->setStatusCode(drogon::k500InternalServerError);
         callback(resp);
     }, userId, eventId);
 }
 
 void UserController::cancelRegistration(const drogon::HttpRequestPtr &req, std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
-    std::string userId = req->getAttributes().get<std::string>("user_id");
+    std::string userId = req->getAttributes()->get<std::string>("user_id");
+    std::string eventId = req->getAttributes()->get<std::string>("id");
     auto dbClient = drogon::app().getDbClient();
     dbClient->execSqlAsync(
         "DELETE FROM user_registrations WHERE user_id = $1::uuid AND event_id = $2::uuid",
@@ -98,14 +102,15 @@ void UserController::cancelRegistration(const drogon::HttpRequestPtr &req, std::
         },
         [callback](const drogon::orm::DrogonDbException &e) {
             Json::Value errJson;
-            errJson["error"] = "Database error: " + std::string(e.what());
-            auto resp = drogon::HttpResponse::newHttpJsonResponse();
+            errJson["error"] = "Database error: " + std::string(e.base().what());
+            auto resp = drogon::HttpResponse::newHttpJsonResponse(errJson);
             resp->setStatusCode(drogon::k500InternalServerError);
             callback(resp);
         }, userId, eventId);
 }
 
 void UserController::getEvents(const drogon::HttpRequestPtr &req, std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
+    std::string userId = req->getAttributes()->get<std::string>("user_id");
     auto dbClient = drogon::app().getDbClient();
     dbClient->execSqlAsync(
         "SELECT e.id, e.title, e.event_date, ur.status "
@@ -125,7 +130,9 @@ void UserController::getEvents(const drogon::HttpRequestPtr &req, std::function<
             auto resp = drogon::HttpResponse::newHttpJsonResponse(events);
             callback(resp);
         }, [callback](const drogon::orm::DrogonDbException &e) {
-            auto resp = drogon::HttpResponse::newHttpJsonResponse();
+            Json::Value errJson;
+            errJson["error"] = "Database error: " + std::string(e.base().what());
+            auto resp = drogon::HttpResponse::newHttpJsonResponse(errJson);
             resp->setStatusCode(drogon::k500InternalServerError);
             callback(resp);
         }, userId
@@ -133,6 +140,7 @@ void UserController::getEvents(const drogon::HttpRequestPtr &req, std::function<
 }
 
 void UserController::getCertificates(const drogon::HttpRequestPtr &req, std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
+    std::string userId = req->getAttributes()->get<std::string>("user_id");
     auto dbClient = drogon::app().getDbClient();
     dbClient->execSqlAsync(
         "SELECT c.id, c.title, c.uploaded_at, c.file_name "
@@ -151,7 +159,9 @@ void UserController::getCertificates(const drogon::HttpRequestPtr &req, std::fun
             auto resp = drogon::HttpResponse::newHttpJsonResponse(certificates);
             callback(resp);
         }, [callback](const drogon::orm::DrogonDbException &e) {
-            auto resp = drogon::HttpResponse::newHttpJsonResponse();
+            Json::Value errJson;
+            errJson["error"] = "Database error: " + std::string(e.base().what());
+            auto resp = drogon::HttpResponse::newHttpJsonResponse(errJson);
             resp->setStatusCode(drogon::k500InternalServerError);
             callback(resp);
         }, userId
@@ -161,7 +171,9 @@ void UserController::getCertificates(const drogon::HttpRequestPtr &req, std::fun
 void UserController::uploadCertificate(const drogon::HttpRequestPtr &req, std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
     auto json = req->getJsonObject();
     if (!json || !(*json)["title"].isString() || !(*json)["file_name"].isString() || !(*json)["file_path"].isString()) {
-        auto resp = drogon::HttpResponse::newHttpJsonResponse();
+        Json::Value errJson;
+        errJson["error"] = "Invalid request body";
+        auto resp = drogon::HttpResponse::newHttpJsonResponse(errJson);
         resp->setStatusCode(drogon::k400BadRequest);
         callback(resp);
         return;
@@ -169,7 +181,7 @@ void UserController::uploadCertificate(const drogon::HttpRequestPtr &req, std::f
     std::string title = (*json)["title"].asString();
     std::string fileName = (*json)["file_name"].asString();
     std::string filePath = (*json)["file_path"].asString();
-    std::string userId = req->getAttributes().get<std::string>("user_id");
+    std::string userId = req->getAttributes()->get<std::string>("user_id");
     std::string eventId = (*json)["event_id"].isInt() ? std::to_string((*json)["event_id"].asInt()) : "";
     auto dbClient = drogon::app().getDbClient();
     std::string sql = "INSERT INTO certificates (user_id, title, file_path, file_name";
@@ -184,15 +196,10 @@ void UserController::uploadCertificate(const drogon::HttpRequestPtr &req, std::f
         callback(resp);
     };
     auto errorCallback = [callback](const drogon::orm::DrogonDbException &e) {
-        auto resp = drogon::HttpResponse::newHttpJsonResponse();
-        if (e.base().what().find("23505") != std::string::npos || e.base().what().find("duplicate key") != std::string::npos) {
-            Json::Value errJson;
-            errJson["error"] = "Certificate already uploaded";
-            resp = drogon::HttpResponse::newHttpJsonResponse(errJson);
-            resp->setStatusCode(drogon::k400BadRequest);
-        } else {
-            resp->setStatusCode(drogon::k500InternalServerError);
-        }
+        Json::Value errJson;
+        errJson["error"] = "Database error: " + std::string(e.base().what());
+        auto resp = drogon::HttpResponse::newHttpJsonResponse(errJson);
+        resp->setStatusCode(drogon::k500InternalServerError);
         callback(resp);
     };
     if (!eventId.empty()) {
