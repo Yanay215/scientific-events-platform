@@ -5,14 +5,6 @@ import { ElMessage } from 'element-plus'
 const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5173';
 axios.defaults.baseURL = apiUrl;
 
-axios.interceptors.response.use((config) => {
-    const token = localStorage.getItem('token');
-    if (token) {
-        config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-});
-
 export const useAuthStore = defineStore('auth', {
     state: () => ({
         token: localStorage.getItem('token') || null,

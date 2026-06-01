@@ -54,7 +54,7 @@ void AuthController::login(const drogon::HttpRequestPtr &req, std::function<void
     std::string password = (*json)["password"].asString();
 
     auto client = drogon::app().getDbClient();
-    client->execSqlAsync("SELECT id::text, password_hash, role::text, first_name, last_name, is_verified FROM users WHERE email = $1",
+    client->execSqlAsync("SELECT id::text, password_hash, role::text, first_name, last_name, is_verified, is_blocked FROM users WHERE email = $1",
         [password, callback](const drogon::orm::Result &r) {
             if (r.empty()) {
                 Json::Value ret;
@@ -69,6 +69,14 @@ void AuthController::login(const drogon::HttpRequestPtr &req, std::function<void
             if (!row["is_verified"].as<bool>()) {
                 Json::Value errJson;
                 errJson["error"] = "User not verified";
+                auto resp = drogon::HttpResponse::newHttpJsonResponse(errJson);
+                resp->setStatusCode(drogon::k403Forbidden);
+                callback(resp);
+                return;
+            }
+            if (row["is_blocked"].as<bool>()) {
+                Json::Value errJson;
+                errJson["error"] = "Account access has been restricted by a moderator";
                 auto resp = drogon::HttpResponse::newHttpJsonResponse(errJson);
                 resp->setStatusCode(drogon::k403Forbidden);
                 callback(resp);
@@ -250,10 +258,12 @@ void AuthController::verifyUser(const drogon::HttpRequestPtr &req, std::function
 
 void AuthController::completeProfile(const drogon::HttpRequestPtr &req, std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
     auto json = req->getJsonObject();
-    if (!json || !(*json)["verification_id"].isString() || 
-        !(*json)["first_name"].isString() || !(*json)["last_name"].isString()) {
+    if (!json || !(*json)["verification_id"].isString() ||
+        !(*json)["first_name"].isString() || !(*json)["last_name"].isString() ||
+        !(*json)["phone"].isString() || !(*json)["birth_date"].isString() ||
+        !(*json)["gender"].isString()) {
         Json::Value ret;
-        ret["error"] = "Missing required profile fields (First Name, Last Name)";
+        ret["error"] = "Missing required profile fields (First Name, Last Name, Phone, Birth Date, Gender)";
         auto resp = drogon::HttpResponse::newHttpJsonResponse(ret);
         resp->setStatusCode(drogon::k400BadRequest);
         callback(resp);
@@ -286,7 +296,7 @@ void AuthController::completeProfile(const drogon::HttpRequestPtr &req, std::fun
             std::string passwordHash = r[0]["password_hash"].as<std::string>();
             drogon::app().getDbClient()->execSqlAsync(
                 "INSERT INTO users (email, password_hash, role, first_name, last_name, middle_name, university, department, academic_degree, phone, birth_date, gender, is_verified) "
-                "VALUES ($1, $2, $3::user_role, $4, $5, $6, $7, $8, $9, $10, $11, $12, TRUE) RETURNING id",
+                "VALUES ($1, $2, $3::user_role, $4, $5, $6, $7, $8, $9, $10, $11::date, $12, TRUE) RETURNING id",
                 [callback, verificationId, email, firstName, lastName, role, phone, birthDate, gender](const drogon::orm::Result &rUser) {
                     std::string newUserId = rUser[0]["id"].as<std::string>();
                     drogon::app().getDbClient()->execSqlAsync("DELETE FROM user_verifications WHERE id = $1::uuid", [](const drogon::orm::Result &){}, [](const drogon::orm::DrogonDbException &){}, verificationId);
@@ -315,7 +325,7 @@ void AuthController::completeProfile(const drogon::HttpRequestPtr &req, std::fun
                     auto resp = drogon::HttpResponse::newHttpJsonResponse(ret);
                     resp->setStatusCode(drogon::k500InternalServerError);
                     callback(resp);
-                }, email, passwordHash, role, firstName, lastName, middleName, university, department, academicDegree
+                }, email, passwordHash, role, firstName, lastName, middleName, university, department, academicDegree, phone, birthDate, gender
                 );
         },
         [callback](const drogon::orm::DrogonDbException &e) {

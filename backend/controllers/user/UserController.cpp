@@ -113,17 +113,19 @@ void UserController::getEvents(const drogon::HttpRequestPtr &req, std::function<
     std::string userId = req->getAttributes()->get<std::string>("user_id");
     auto dbClient = drogon::app().getDbClient();
     dbClient->execSqlAsync(
-        "SELECT e.id, e.title, e.event_date, ur.status "
+        "SELECT e.id::text, e.title, e.start_date, e.end_date, ur.status::text "
         "FROM events e "
         "JOIN user_registrations ur ON e.id = ur.event_id "
-        "WHERE ur.user_id = $1 ",
+        "WHERE ur.user_id = $1::uuid "
+        "ORDER BY e.start_date DESC",
         [callback](const drogon::orm::Result &r) {
             Json::Value events(Json::arrayValue);
             for (const auto &row : r) {
                 Json::Value event;
                 event["id"] = row["id"].as<std::string>();
                 event["title"] = row["title"].as<std::string>();
-                event["date"] = row["event_date"].as<std::string>();
+                event["start_date"] = row["start_date"].as<std::string>();
+                event["end_date"] = row["end_date"].as<std::string>();
                 event["status"] = row["status"].as<std::string>();
                 events.append(event);
             }
@@ -182,11 +184,11 @@ void UserController::uploadCertificate(const drogon::HttpRequestPtr &req, std::f
     std::string fileName = (*json)["file_name"].asString();
     std::string filePath = (*json)["file_path"].asString();
     std::string userId = req->getAttributes()->get<std::string>("user_id");
-    std::string eventId = (*json)["event_id"].isInt() ? std::to_string((*json)["event_id"].asInt()) : "";
+    std::string eventId = (*json)["event_id"].isString() ? (*json)["event_id"].asString() : "";
     auto dbClient = drogon::app().getDbClient();
     std::string sql = "INSERT INTO certificates (user_id, title, file_path, file_name";
-    if (!eventId.empty()) sql += ", event_id) VALUES ($1, $2, $3, $4, $5)";
-    else sql += ") VALUES ($1, $2, $3, $4)";
+    if (!eventId.empty()) sql += ", event_id) VALUES ($1::uuid, $2, $3, $4, $5::uuid)";
+    else sql += ") VALUES ($1::uuid, $2, $3, $4)";
     auto sqlCallback = [callback](const drogon::orm::Result &r) {
         Json::Value ret;
         ret["result"] = "success";

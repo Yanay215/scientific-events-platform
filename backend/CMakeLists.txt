@@ -22,6 +22,7 @@ set(BACKEND_SOURCES
     controllers/moderator/ModeratorController.cpp
     controllers/organizer/OrganizerController.cpp
     controllers/universities/UniversitiesController.cpp
+    controllers/report/ReportController.cpp
 )
 
 add_executable(${PROJECT_NAME} ${BACKEND_SOURCES})
@@ -38,6 +39,7 @@ target_include_directories(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/backend/controllers/user
     ${CMAKE_CURRENT_SOURCE_DIR}/backend/controllers/moderator
     ${CMAKE_CURRENT_SOURCE_DIR}/backend/controllers/organizer
+    ${CMAKE_CURRENT_SOURCE_DIR}/backend/controllers/report
     ${Drogon_INCLUDE_DIRS}
     ${PostgreSQL_INCLUDE_DIRS}
     ${jwt-cpp_INCLUDE_DIRS}

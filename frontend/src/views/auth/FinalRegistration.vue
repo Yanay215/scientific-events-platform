@@ -66,19 +66,19 @@
 
         <div class="form-group">
           <label>Ваш пол: <span class="required">*</span></label>
-          <div class="slider-selector" :style="{ '--active-index': uiFields.gender === 'male' ? 1 : 0 }">
+          <div class="slider-selector" :style="{ '--active-index': formData.gender === 'male' ? 1 : 0 }">
             <div class="slider-active-bg"></div>
             <button 
               type="button" 
               class="slider-btn"
-              :class="{ 'active': uiFields.gender === 'female' }"
-              @click="uiFields.gender = 'female'"
+              :class="{ 'active': formData.gender === 'female' }"
+              @click="formData.gender = 'female'"
             >Женский</button>
             <button 
               type="button" 
               class="slider-btn"
-              :class="{ 'active': uiFields.gender === 'male' }"
-              @click="uiFields.gender = 'male'"
+              :class="{ 'active': formData.gender === 'male' }"
+              @click="formData.gender = 'male'"
             >Мужской</button>
           </div>
         </div>
@@ -104,9 +104,6 @@
                   @click="selectUniversity(uni.name)"
                 >
                   <span class="uni-name">{{ uni.name }}</span>
-                  <span v-if="uni.synonyms && uni.synonyms.length" class="uni-badge">
-                    {{ uni.synonyms[0] }}
-                  </span>
                 </li>
               </ul>
             </transition>
@@ -144,7 +141,7 @@
         <div class="form-group">
           <label>Введите вашу дату рождения: <span class="required">*</span></label>
           <el-date-picker
-            v-model="uiFields.birthDate"
+            v-model="formData.birth_date"
             type="date"
             placeholder="ДД.ММ.ГГГГ"
             format="DD.MM.YYYY"
@@ -153,17 +150,18 @@
             :editable="false"
             class="custom-date-picker"
           />
-          <span v-if="errors.birthDate" class="error-text">{{ errors.birthDate }}</span>
+          <span v-if="errors.birth_date" class="error-text">{{ errors.birth_date }}</span>
         </div>
 
         <div class="form-group">
           <label for="phone">Введите ваш номер телефона:</label>
           <input 
-            id="phone" 
-            type="tel" 
-            v-model="uiFields.phone" 
+            id="phone"
+            type="tel"
+            v-model="formData.phone" 
             @input="handlePhoneInput"
-            placeholder="+7 (___) ___-__-__"
+            placeholder="+7 (999) 999-99-99" 
+            inputmode="tel"
             maxlength="18"
           >
         </div>
@@ -181,7 +179,6 @@
           class="submit-button"
           :class="{ 'btn-disabled': hasAnyError }"
           :disabled="isLoading"
-          @click="handleSubmit"
         >
           {{ isLoading ? 'Сохранение...' : 'Далее' }}
         </button>
@@ -293,32 +290,18 @@ const disabledFutureDates = (time) => {
   return time.getTime() > Date.now();
 };
 
-const handlePhoneInput = (e) => {
-  let input = e.target.value.replace(/\D/g, '');
-  if (!input) {
-    formData.phone = '';
-    return;
-  }
-  
-  if (input.startsWith('7') || input.startsWith('8')) {
-    input = input.substring(1);
-  }
-  
-  let formatted = '+7 ';
-  if (input.length > 0) {
-    formatted += '(' + input.substring(0, 3);
-  }
-  if (input.length >= 3) {
-    formatted += ') ' + input.substring(3, 6);
-  }
-  if (input.length >= 6) {
-    formatted += ' - ' + input.substring(6, 8);
-  }
-  if (input.length >= 8) {
-    formatted += ' - ' + input.substring(8, 10);
-  }
-  
-  formData.phone = formatted;
+const handlePhoneInput = () => {
+  let digits = formData.phone.replace(/\D/g, '');
+  if (digits.startsWith('8')) digits = '7' + digits.slice(1);
+  if (digits.startsWith('9')) digits = '7' + digits;
+  digits = digits.slice(0, 11);
+  if (!digits) { formData.phone = ''; return; }
+  let out = '+7';
+  if (digits.length > 1) out += ' (' + digits.slice(1, 4);
+  if (digits.length >= 4) out += ') ' + digits.slice(4, 7);
+  if (digits.length >= 7) out += '-' + digits.slice(7, 9);
+  if (digits.length >= 9) out += '-' + digits.slice(9, 11);
+  formData.phone = out;
 };
 
 const handleSubmit = async () => {
@@ -332,7 +315,7 @@ const handleSubmit = async () => {
   if (Object.keys(errors.value).length === 0) {
     try {
       isLoading.value = true;
-      const data = await authStore.completeProfile({
+      const data = await authStore.completeRegistration({
         ...formData
       });
       if (data.user.role === 'organizer') {
@@ -407,9 +390,10 @@ const handleSubmit = async () => {
     color: variables.$black;
     margin-bottom: 8px;
     
-    .required { color: variables.$dangerous; }
   }
 }
+
+.required { color: variables.$dangerous; }
 
 input[type="text"],
 input[type="tel"] {

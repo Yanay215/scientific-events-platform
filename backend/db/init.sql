@@ -60,6 +60,7 @@ CREATE TABLE users (
     birth_date DATE NOT NULL,
     gender VARCHAR(10) NOT NULL,
     is_verified BOOLEAN NOT NULL DEFAULT FALSE,
+    is_blocked BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );

@@ -24,3 +24,18 @@ export async function getAllUniversities(query) {
         throw error;
     }
 }
+
+export async function getModeratorUsers() {
+    const response = await axios.get('/moderator/users');
+    return response.data;
+}
+
+export async function updateUserRole(userId, role) {
+    const response = await axios.put(`/moderator/users/${userId}/role`, { role });
+    return response.data;
+}
+
+export async function setUserBlocked(userId, isBlocked) {
+    const response = await axios.put(`/moderator/users/${userId}/block`, { is_blocked: isBlocked });
+    return response.data;
+}
