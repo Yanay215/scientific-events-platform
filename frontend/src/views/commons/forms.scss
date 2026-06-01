@@ -1,5 +1,5 @@
-@use './../../assets/scss/variables' as variables;
-@use './../../assets/scss/functions' as functions;
+@use '@/assets/scss/variables' as variables;
+@use '@/assets/scss/functions' as functions;
 
 .page-layout {
   background-color: variables.$dark-white;

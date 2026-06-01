@@ -68,7 +68,7 @@ void ReportController::exportExcelReport(const drogon::HttpRequestPtr &req, std:
             }
             auto resp = drogon::HttpResponse::newHttpResponse();
             resp->setBody(ss.str());
-            resp->setContentTypeCode(CT_TEXT_CSV);
+            resp->setContentTypeCode(drogon::CT_TEXT_CSV);
             resp->addHeader("Content-Disposition", "attachment; filename=participants_report.csv");
             callback(resp);
         },
@@ -115,7 +115,7 @@ void ReportController::exportWordReport(const drogon::HttpRequestPtr &req, std::
 
             auto resp = drogon::HttpResponse::newHttpResponse();
             resp->setBody(doc.str());
-            resp->setContentTypeCode(CT_TEXT_HTML);
+            resp->setContentTypeCode(drogon::CT_TEXT_HTML);
             resp->addHeader("Content-Disposition", "attachment; filename=summary_report.doc");
             callback(resp);
         },
